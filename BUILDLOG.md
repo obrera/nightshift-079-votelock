@@ -49,5 +49,7 @@ Missing signer or disabled live mint is not hidden. Local proof can complete wit
 ## Deployment Notes
 
 - 2026-05-06T01:22:24Z: Local gates passed: `bun run lint`, `bun run check-types`, `bun run build`, and `bun run proof:local`.
-- 2026-05-06T01:22:24Z: Live deployment is blocked before app proof: `curl -i https://votelock079.colmena.dev/api/health` fails TLS validation with a self-signed certificate; `curl -k -i https://votelock079.colmena.dev/api/health` reaches the host but returns `HTTP/2 404` with body `404 page not found`.
-- 2026-05-06T01:22:24Z: Live proof blocker: `NODE_TLS_REJECT_UNAUTHORIZED=0 bun run proof:live` fails at `/api/health` because the response is plain-text `404 page not found`, so no live metadata/image or devnet MPL Core mint could be verified from the deployed URL.
+- 2026-05-06T01:40:00Z: Fixed the Docker build context and disabled install-time prepare scripts inside the container so Dokploy can build from a clean remote context.
+- 2026-05-06T01:52:00Z: Removed scaffold title/footer/favicon residue, redeployed on Dokploy, and verified `https://votelock079.colmena.dev` plus `/api/health` over a valid HTTPS certificate.
+- 2026-05-06T01:53:00Z: Live proof minted MPL Core receipt asset `8eW4yZ8zo9Yx1KbxQ9ZpSBCG3CG8KWmLNJT992LEpubg` with transaction `2CDG6MMurWPUxSkGCu5FhL272MvTGCbk47gWYih5U6FT3awHL7p8prmHZffMWB8SdBg9mE3DxvxHYzEhtnHvtr5t`; proof receipt `votelock-motekrs5-6826c87b` returned metadata and image HTTP 200.
+- 2026-05-06T01:53:00Z: Responsive verification passed for mobile `390x844` and desktop `1280x720`.
