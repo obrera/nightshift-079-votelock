@@ -4,7 +4,7 @@ RUN corepack enable && npm install -g bun@1.3.12
 
 FROM base AS deps
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts
 
 FROM deps AS build
 COPY . .
