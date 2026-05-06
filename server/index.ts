@@ -311,7 +311,6 @@ app.get('/api/receipts/:id/image.svg', (context) => {
 app.get('/api/audit', (context) => context.json({ events: store.getAudit(context.req.query('receiptId')) }))
 
 app.use('/assets/*', serveStatic({ root: './dist' }))
-app.use('/vite.svg', serveStatic({ path: './dist/vite.svg' }))
 app.get('*', async (context) => context.html(await readIndex()))
 
 const port = Number(process.env.PORT ?? 4179)
