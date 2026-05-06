@@ -85,13 +85,22 @@ async function main() {
 }
 
 async function parse<T>(response: Response) {
-  const payload = (await response.json()) as { error?: string } & T
+  const text = await response.text()
+  const payload = parsePayload<T>(text)
 
   if (!response.ok) {
-    throw new Error(payload.error ?? `HTTP ${response.status}`)
+    throw new Error(payload.error ?? `HTTP ${response.status}: ${text.slice(0, 240)}`)
   }
 
   return payload
+}
+
+function parsePayload<T>(text: string) {
+  try {
+    return JSON.parse(text) as { error?: string } & T
+  } catch {
+    throw new Error(`Expected JSON API response, received: ${text.slice(0, 240)}`)
+  }
 }
 
 async function runProof() {

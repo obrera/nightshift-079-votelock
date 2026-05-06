@@ -1,6 +1,6 @@
 import type { Address } from '@solana/kit'
 
-import { useWalletAccountMessageSigner, useWalletUi } from '@wallet-ui/react'
+import { type UiWalletAccount, useWalletAccountMessageSigner, useWalletUi } from '@wallet-ui/react'
 import { ArrowDownUp, BadgeCheck, ClipboardCheck, Fingerprint, History, ReceiptText, ShieldCheck } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
@@ -24,9 +24,42 @@ import {
   useVerifyMutation,
 } from '../data-access/queries'
 
+interface VoteLockDashboardProps {
+  activeRanking: string[]
+  auditEvents: {
+    createdAt: string
+    detail: string
+    id: number
+    type: string
+  }[]
+  connected: boolean
+  health?: Record<string, unknown>
+  isSignedIn: boolean
+  lastReceipt: null | Receipt
+  proposals: Proposal[]
+  selectedProposal?: Proposal
+  selectedProposalId: string
+  setRanking: (ranking: string[]) => void
+  setSelectedProposalId: (id: string) => void
+  setVerifyId: (value: string) => void
+  verified?: {
+    audit: {
+      createdAt: string
+      detail: string
+      id: number
+      type: string
+    }[]
+    ok: boolean
+    receipt: Receipt
+    tally: { totalVotes: number }
+  }
+  verify: () => void
+  verifyId: string
+  verifyPending: boolean
+}
+
 export function VoteLockFeature() {
   const { account, connected } = useWalletUi()
-  const signer = useWalletAccountMessageSigner(account!)
   const [session, setSession] = useState<{ token: string; voter: string } | null>(null)
   const [selectedProposalId, setSelectedProposalId] = useState('prop-solana-delegate-guardrails')
   const [ranking, setRanking] = useState<string[]>([])
@@ -35,19 +68,92 @@ export function VoteLockFeature() {
   const proposalsQuery = useProposalsQuery()
   const healthQuery = useHealthQuery()
   const auditQuery = useAuditQuery(lastReceipt?.id)
-  const sessionChallenge = useSessionChallengeMutation()
-  const sessionMutation = useSessionMutation()
-  const ballotChallenge = useBallotChallengeMutation(session?.token)
-  const submitBallot = useSubmitBallotMutation(session?.token)
   const verifyMutation = useVerifyMutation()
   const proposals = proposalsQuery.data?.proposals ?? []
   const selectedProposal = proposals.find((proposal) => proposal.id === selectedProposalId) ?? proposals[0]
   const activeRanking = ranking.length ? ranking : (selectedProposal?.choices.map((choice) => choice.id) ?? [])
   const isSignedIn = session?.voter === account?.address
+  const verified = verifyMutation.data
+  const dashboardProps = {
+    activeRanking,
+    auditEvents: verified?.audit ?? auditQuery.data?.events ?? [],
+    connected,
+    health: healthQuery.data,
+    isSignedIn,
+    lastReceipt,
+    proposals,
+    selectedProposal,
+    selectedProposalId,
+    setRanking,
+    setSelectedProposalId,
+    setVerifyId,
+    verified,
+    verify: () => verifyMutation.mutate(verifyId),
+    verifyId,
+    verifyPending: verifyMutation.isPending,
+  }
+
+  if (account) {
+    return (
+      <ConnectedVoteLockDashboard
+        {...dashboardProps}
+        account={account}
+        session={session}
+        setLastReceipt={setLastReceipt}
+        setSession={setSession}
+      />
+    )
+  }
+
+  return <VoteLockDashboard {...dashboardProps} signIn={() => undefined} submitDisabled submitVote={() => undefined} />
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = ''
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+
+  return btoa(binary)
+}
+
+function ConnectedVoteLockDashboard({
+  account,
+  activeRanking,
+  auditEvents,
+  connected,
+  health,
+  isSignedIn,
+  lastReceipt,
+  proposals,
+  selectedProposal,
+  selectedProposalId,
+  session,
+  setLastReceipt,
+  setRanking,
+  setSelectedProposalId,
+  setSession,
+  setVerifyId,
+  verified,
+  verify,
+  verifyId,
+  verifyPending,
+}: {
+  account: UiWalletAccount
+  session: { token: string; voter: string } | null
+  setLastReceipt: (receipt: Receipt) => void
+  setSession: (session: { token: string; voter: string }) => void
+} & VoteLockDashboardProps) {
+  const signer = useWalletAccountMessageSigner(account)
+  const sessionChallenge = useSessionChallengeMutation()
+  const sessionMutation = useSessionMutation()
+  const ballotChallenge = useBallotChallengeMutation(session?.token)
+  const submitBallot = useSubmitBallotMutation(session?.token)
 
   async function signText(text: string) {
-    if (!account || !signer) {
-      throw new Error('Connect a Solana wallet first.')
+    if (!signer) {
+      throw new Error('Connected wallet does not support message signing.')
     }
 
     const [result] = await signer.modifyAndSignMessages([{ content: new TextEncoder().encode(text), signatures: {} }])
@@ -61,10 +167,6 @@ export function VoteLockFeature() {
   }
 
   async function signIn() {
-    if (!account) {
-      return
-    }
-
     const challenge = await sessionChallenge.mutateAsync({ voter: account.address })
     const signature = await signText(challenge.message)
     const nextSession = await sessionMutation.mutateAsync({
@@ -89,108 +191,29 @@ export function VoteLockFeature() {
     setVerifyId(result.receipt.id)
   }
 
-  const verified = verifyMutation.data
-  const health = healthQuery.data
-
   return (
-    <main className="min-h-full bg-[#07100d] text-zinc-100">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 lg:px-8">
-        <header className="grid gap-4 border-b border-lime-300/20 pb-4 md:grid-cols-[1fr_auto] md:items-end">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 border border-lime-300/25 bg-lime-300/10 px-2 py-1 text-xs text-lime-100">
-              <ShieldCheck className="size-3.5" />
-              Nightshift 079 / Solana week / MPL Core governance receipts
-            </div>
-            <h1 className="text-3xl font-semibold tracking-normal text-lime-100 sm:text-5xl">VoteLock</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
-              Wallet-signed ballot intents, durable ranked tally state, and server-minted MPL Core vote receipt assets
-              owned by the connected voter wallet.
-            </p>
-          </div>
-          <div className="grid gap-2">
-            <SolanaUiWalletDropdown className="h-9 min-w-64 border-lime-300/25 bg-black/20 text-lime-100" />
-            <Button
-              className="h-9 justify-start gap-2"
-              disabled={!connected || !account || isSignedIn}
-              onClick={() => void signIn()}
-            >
-              <Fingerprint className="size-4" />
-              {isSignedIn ? 'Wallet session active' : 'Sign VoteLock session'}
-            </Button>
-          </div>
-        </header>
-
-        <section className="grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
-          <div className="space-y-5">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Metric label="RPC" value={String(health?.rpcUrl ?? 'loading')} />
-              <Metric
-                label="Signer"
-                value={
-                  health?.runtime
-                    ? (health.runtime as { signerConfigured?: boolean }).signerConfigured
-                      ? 'configured'
-                      : 'missing'
-                    : 'checking'
-                }
-              />
-              <Metric
-                label="Mint readiness"
-                value={health?.mint ? ((health.mint as { ready?: boolean }).ready ? 'ready' : 'gated') : 'checking'}
-              />
-            </div>
-            <ProposalWorkspace
-              activeRanking={activeRanking}
-              isReady={isSignedIn}
-              proposal={selectedProposal}
-              proposals={proposals}
-              selectedProposalId={selectedProposalId}
-              setRanking={setRanking}
-              setSelectedProposalId={setSelectedProposalId}
-              submitDisabled={!isSignedIn || submitBallot.isPending || ballotChallenge.isPending}
-              submitVote={() => void submitVote()}
-            />
-          </div>
-
-          <aside className="space-y-5">
-            <ReceiptPanel receipt={lastReceipt} />
-            <VerificationPanel
-              isPending={verifyMutation.isPending}
-              setVerifyId={setVerifyId}
-              verified={verified}
-              verify={() => verifyMutation.mutate(verifyId)}
-              verifyId={verifyId}
-            />
-            <div className="border border-lime-300/20 bg-black/25 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-lime-100">
-                <History className="size-4" />
-                Audit history
-              </div>
-              <div className="space-y-3">
-                {(verified?.audit ?? auditQuery.data?.events ?? []).slice(0, 6).map((event) => (
-                  <div className="border-l border-lime-300/30 pl-3 text-xs" key={event.id}>
-                    <div className="text-zinc-100">{event.type}</div>
-                    <div className="text-zinc-400">{event.detail}</div>
-                    <div className="mt-1 font-mono text-lime-200/70">{formatDate(event.createdAt)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
-        </section>
-      </div>
-    </main>
+    <VoteLockDashboard
+      activeRanking={activeRanking}
+      auditEvents={auditEvents}
+      connected={connected}
+      health={health}
+      isSignedIn={isSignedIn}
+      lastReceipt={lastReceipt}
+      proposals={proposals}
+      selectedProposal={selectedProposal}
+      selectedProposalId={selectedProposalId}
+      setRanking={setRanking}
+      setSelectedProposalId={setSelectedProposalId}
+      setVerifyId={setVerifyId}
+      signIn={() => void signIn()}
+      submitDisabled={!isSignedIn || submitBallot.isPending || ballotChallenge.isPending}
+      submitVote={() => void submitVote()}
+      verified={verified}
+      verify={verify}
+      verifyId={verifyId}
+      verifyPending={verifyPending}
+    />
   )
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  let binary = ''
-
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
-
-  return btoa(binary)
 }
 
 function KeyValue({ label, value }: { label: string; value: string }) {
@@ -408,5 +431,117 @@ function VerificationPanel({
         </div>
       ) : null}
     </div>
+  )
+}
+
+function VoteLockDashboard({
+  activeRanking,
+  auditEvents,
+  connected,
+  health,
+  isSignedIn,
+  lastReceipt,
+  proposals,
+  selectedProposal,
+  selectedProposalId,
+  setRanking,
+  setSelectedProposalId,
+  setVerifyId,
+  signIn,
+  submitDisabled,
+  submitVote,
+  verified,
+  verify,
+  verifyId,
+  verifyPending,
+}: {
+  signIn: () => void
+  submitDisabled: boolean
+  submitVote: () => void
+} & VoteLockDashboardProps) {
+  return (
+    <main className="min-h-full bg-[#07100d] text-zinc-100">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-4 sm:px-6 lg:px-8">
+        <header className="grid gap-4 border-b border-lime-300/20 pb-4 md:grid-cols-[1fr_auto] md:items-end">
+          <div>
+            <div className="mb-3 inline-flex items-center gap-2 border border-lime-300/25 bg-lime-300/10 px-2 py-1 text-xs text-lime-100">
+              <ShieldCheck className="size-3.5" />
+              Nightshift 079 / Solana week / MPL Core governance receipts
+            </div>
+            <h1 className="text-3xl font-semibold tracking-normal text-lime-100 sm:text-5xl">VoteLock</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-300">
+              Wallet-signed ballot intents, durable ranked tally state, and server-minted MPL Core vote receipt assets
+              owned by the connected voter wallet.
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <SolanaUiWalletDropdown className="h-9 min-w-64 border-lime-300/25 bg-black/20 text-lime-100" />
+            <Button className="h-9 justify-start gap-2" disabled={!connected || isSignedIn} onClick={signIn}>
+              <Fingerprint className="size-4" />
+              {isSignedIn ? 'Wallet session active' : 'Sign VoteLock session'}
+            </Button>
+          </div>
+        </header>
+
+        <section className="grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
+          <div className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Metric label="RPC" value={String(health?.rpcUrl ?? 'loading')} />
+              <Metric
+                label="Signer"
+                value={
+                  health?.runtime
+                    ? (health.runtime as { signerConfigured?: boolean }).signerConfigured
+                      ? 'configured'
+                      : 'missing'
+                    : 'checking'
+                }
+              />
+              <Metric
+                label="Mint readiness"
+                value={health?.mint ? ((health.mint as { ready?: boolean }).ready ? 'ready' : 'gated') : 'checking'}
+              />
+            </div>
+            <ProposalWorkspace
+              activeRanking={activeRanking}
+              isReady={isSignedIn}
+              proposal={selectedProposal}
+              proposals={proposals}
+              selectedProposalId={selectedProposalId}
+              setRanking={setRanking}
+              setSelectedProposalId={setSelectedProposalId}
+              submitDisabled={submitDisabled}
+              submitVote={submitVote}
+            />
+          </div>
+
+          <aside className="space-y-5">
+            <ReceiptPanel receipt={lastReceipt} />
+            <VerificationPanel
+              isPending={verifyPending}
+              setVerifyId={setVerifyId}
+              verified={verified}
+              verify={verify}
+              verifyId={verifyId}
+            />
+            <div className="border border-lime-300/20 bg-black/25 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-lime-100">
+                <History className="size-4" />
+                Audit history
+              </div>
+              <div className="space-y-3">
+                {auditEvents.slice(0, 6).map((event) => (
+                  <div className="border-l border-lime-300/30 pl-3 text-xs" key={event.id}>
+                    <div className="text-zinc-100">{event.type}</div>
+                    <div className="text-zinc-400">{event.detail}</div>
+                    <div className="mt-1 font-mono text-lime-200/70">{formatDate(event.createdAt)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </section>
+      </div>
+    </main>
   )
 }

@@ -47,4 +47,6 @@ Missing signer or disabled live mint is not hidden. Local proof can complete wit
 
 ## Deployment Notes
 
-Dokploy deployment status will be completed after local validation and GitHub push. If blocked, the exact blocker will be appended here.
+- 2026-05-06T01:22:24Z: Local gates passed: `bun run lint`, `bun run check-types`, `bun run build`, and `bun run proof:local`.
+- 2026-05-06T01:22:24Z: Live deployment is blocked before app proof: `curl -i https://votelock079.colmena.dev/api/health` fails TLS validation with a self-signed certificate; `curl -k -i https://votelock079.colmena.dev/api/health` reaches the host but returns `HTTP/2 404` with body `404 page not found`.
+- 2026-05-06T01:22:24Z: Live proof blocker: `NODE_TLS_REJECT_UNAUTHORIZED=0 bun run proof:live` fails at `/api/health` because the response is plain-text `404 page not found`, so no live metadata/image or devnet MPL Core mint could be verified from the deployed URL.
