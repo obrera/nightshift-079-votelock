@@ -3,7 +3,7 @@ services:
     build: .
     environment:
       NODE_ENV: production
-      PORT: "4179"
+      PORT: "3000"
       PUBLIC_BASE_URL: https://votelock079.colmena.dev
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
       SOLANA_RPC_SUBSCRIPTIONS_URL: ${SOLANA_RPC_SUBSCRIPTIONS_URL:-wss://api.devnet.solana.com}
@@ -11,10 +11,14 @@ services:
       VOTELOCK_COLLECTION_ADDRESS: ${VOTELOCK_COLLECTION_ADDRESS:-}
       VOTELOCK_ENABLE_LIVE_MINT: ${VOTELOCK_ENABLE_LIVE_MINT:-false}
       VOTELOCK_SIGNER_SECRET: ${VOTELOCK_SIGNER_SECRET:-}
-    ports:
-      - "4179:4179"
+    networks:
+      - dokploy-network
     volumes:
       - votelock-data:/app/data
 
 volumes:
   votelock-data:
+
+networks:
+  dokploy-network:
+    external: true

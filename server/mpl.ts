@@ -18,7 +18,7 @@ import {
 
 import type { RuntimeConfig } from './config'
 
-import { base58ToBytes } from './encoding'
+import { base58ToBytes, base64ToBytes } from './encoding'
 
 export interface MintReceiptInput {
   metadataUrl: string
@@ -99,12 +99,36 @@ export async function mintVoteReceipt(config: RuntimeConfig, input: MintReceiptI
   }
 }
 
+function numberListToBytes(value: unknown) {
+  if (!Array.isArray(value) || value.some((item) => !Number.isInteger(item) || item < 0 || item > 255)) {
+    throw new Error('Signer secret byte list must contain integers from 0 to 255')
+  }
+
+  return Uint8Array.from(value)
+}
+
 function parseSignerSecret(secret: string) {
   const trimmed = secret.trim()
 
-  if (trimmed.startsWith('[')) {
-    return Uint8Array.from(JSON.parse(trimmed) as number[])
+  if (!trimmed) {
+    throw new Error('Signer secret is empty')
   }
 
-  return base58ToBytes(trimmed)
+  if (trimmed.startsWith('[')) {
+    return numberListToBytes(JSON.parse(trimmed))
+  }
+
+  if (trimmed.startsWith('base64:')) {
+    return base64ToBytes(trimmed.slice('base64:'.length).trim())
+  }
+
+  if (/^\d+(?:\s*,\s*\d+)+$/.test(trimmed)) {
+    return numberListToBytes(trimmed.split(',').map((value) => Number(value.trim())))
+  }
+
+  try {
+    return base58ToBytes(trimmed)
+  } catch {
+    throw new Error('Signer secret must be a JSON byte array, comma-separated byte list, base64:<value>, or base58')
+  }
 }

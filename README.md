@@ -41,6 +41,8 @@ VOTELOCK_COLLECTION_ADDRESS=
 
 `/api/health` reports public URL, RPC, signer config, collection config, metadata/image URL health, and mint readiness. Missing mint config is reported directly.
 
+`VOTELOCK_SIGNER_SECRET` accepts common Solana key formats: a JSON byte array, a comma-separated byte list, `base64:<value>`, or base58.
+
 ## Proof
 
 The proof script mirrors the UI flow with a generated Ed25519 test wallet:
@@ -58,7 +60,7 @@ It creates a wallet-signed session, fetches the seeded proposal, signs a ballot 
 docker compose up --build
 ```
 
-The image uses `node:24-bookworm-slim`, installs Bun, builds the Vite app, and serves API plus static frontend from one container.
+The image uses `node:24-bookworm-slim`, installs Bun, builds the Vite app, and serves API plus static frontend from one container. In compose, the app listens on internal port `3000`, persists SQLite at `/app/data/votelock.sqlite`, and joins the external `dokploy-network` for Dokploy/Traefik routing at `https://votelock079.colmena.dev`. There is no host `ports:` mapping in compose.
 
 ## Challenge Reference
 

@@ -13,7 +13,7 @@ Timestamp: 2026-05-06T00:00:00Z
 - Forbidden Solana packages: no intentional legacy Solana SDK, adapter React package, direct wallet standard app imports, or app-level byte-buffer global usage.
 - Persistence: durable SQLite for proposals, sessions, challenges, votes, receipts, and audit events.
 - Product: governance/ranked voting with verifiable receipt status and operator audit view.
-- Deployment: Dockerfile and docker-compose added for Dokploy.
+- Deployment: Dockerfile and docker-compose added for Dokploy compose routing.
 
 ## NFT Use Case
 
@@ -44,6 +44,7 @@ Missing signer or disabled live mint is not hidden. Local proof can complete wit
 - 2026-05-06T00:00:00Z: Added Bun/Hono API, SQLite schema, seeded governance proposal, signed session and ballot challenge flow, duplicate vote protection, tally state, receipt metadata/image endpoints, and operator verification.
 - 2026-05-06T00:00:00Z: Added MPL Core receipt mint module using `@obrera/mpl-core-kit-lib/generated` `getCreateV1Instruction`; live mint is gated by explicit runtime config.
 - 2026-05-06T00:00:00Z: Added proof script, Dockerfile, docker-compose, README, and MIT license metadata.
+- 2026-05-06T00:00:00Z: Updated compose for Dokploy/Traefik routing on internal port `3000` with no host port mapping, external `dokploy-network`, and SQLite persisted at `/app/data/votelock.sqlite`.
 
 ## Deployment Notes
 

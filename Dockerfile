@@ -18,5 +18,5 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
 COPY --from=build /app/package.json ./package.json
 RUN mkdir -p /app/data
-EXPOSE 4179
+EXPOSE 3000
 CMD ["bun", "run", "server/index.ts"]
